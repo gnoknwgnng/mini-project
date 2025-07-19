@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Summarizer & Translator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- LottieFiles Web Component Script -->
+    <script src="https://unpkg.com/@lottiefiles/dotlottie-wc@0.6.2/dist/dotlottie-wc.js" type="module"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        /* Custom CSS for dot-pulse loading animation (kept for chat bot loading) */
+        .dot-pulse {
+            position: relative;
+            width: 10px;
+            height: 10px;
+            border-radius: 5px;
+            background-color: #60a5fa; /* blue-400 */
+            color: #60a5fa; /* blue-400 */
+            animation: dotPulse 1.5s infinite ease-in-out;
+        }
+        .dot-pulse::before, .dot-pulse::after {
+            content: '';
+            display: inline-block;
+            position: absolute;
+            top: 0;
+            width: 10px;
+            height: 10px;
+            border-radius: 5px;
+            background-color: #60a5fa; /* blue-400 */
+            color: #60a5fa; /* blue-400 */
+            animation: dotPulse 1.5s infinite ease-in-out;
+        }
+        .dot-pulse::before {
+            left: -15px;
+            animation-delay: 0s;
+        }
+        .dot-pulse::after {
+            left: 15px;
+            animation-delay: 0.3s;
+        }
+
+        @keyframes dotPulse {
+            0% { transform: scale(0.8); opacity: 0.7; }
+            50% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0.8); opacity: 0.7; }
+        }
+
+        /* Sidebar specific styles */
+        .sidebar {
+            width: 250px; /* Fixed width for the sidebar */
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(-100%); /* Hidden by default */
+            position: fixed;
+            height: 100%;
+            z-index: 1000; /* Ensure it's above other content */
+        }
+        .sidebar.open {
+            transform: translateX(0); /* Visible when open */
+        }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none;
+        }
+        .overlay.open {
+            display: block;
+        }
+
+        /* Helping Bot styles and animation */
+        .helping-bot {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 80px; /* Adjusted for Lottie animation */
+            height: 80px; /* Adjusted for Lottie animation */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            transition: transform 0.2s ease-in-out; /* Removed background-color as Lottie handles it */
+            z-index: 990; /* Below overlay, above main content */
+            /* Removed bot-pulse animation as Lottie handles continuous animation */
+        }
+        .helping-bot:hover {
+            transform: scale(1.05);
+        }
+        
+        /* Animation for bot on touch/click */
+        .helping-bot.active {
+            animation: bot-jump 0.3s ease-out; /* Quick jump animation */
+        }
+        @keyframes bot-jump {
+            0% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-15px) scale(1.1); }
+            100% { transform: translateY(0) scale(1); }
+        }
+
+        /* Chat Dialog Styles */
+        .chat-dialog {
+            position: fixed;
+            bottom: 110px; /* Position above the bot */
+            right: 20px;
+            width: 300px; /* Wider for chat */
+            height: 400px; /* Taller for chat history */
+            background-color: #1f2937; /* gray-800 */
+            color: #f9fafb; /* gray-100 */
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            z-index: 995; /* Above bot, below overlay */
+            display: flex; /* Use flexbox for layout */
+            flex-direction: column;
+        }
+        .chat-dialog.open {
+            opacity: 1;
+            transform: translateY(0);
+            display: flex; /* Show as flexbox */
+        }
+        .chat-dialog::after {
+            content: '';
+            position: absolute;
+            bottom: -10px; /* Position the caret below the dialog */
+            right: 30px; /* Align with the bot */
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 10px solid #1f2937; /* Match dialog background */
+        }
+        .chat-messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            padding-right: 5px; /* For scrollbar */
+        }
+        .chat-input-container {
+            display: flex;
+            gap: 5px;
+        }
+        .chat-input {
+            flex-grow: 1;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #4b5563; /* gray-600 */
+            background-color: #374151; /* gray-700 */
+            color: #f9fafb;
+        }
+        .chat-send-btn {
+            background-color: #2563eb; /* blue-600 */
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .chat-send-btn:hover {
+            background-color: #1d4ed8; /* blue-700 */
+        }
+        .chat-message {
+            margin-bottom: 8px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+        .chat-message.user {
+            background-color: #3b82f6; /* blue-500 */
+            margin-left: auto;
+            color: white;
+        }
+        .chat-message.bot {
+            background-color: #4b5563; /* gray-600 */
+            margin-right: auto;
+            color: white;
+        }
+        .chat-message.bot-loading {
+            background-color: #4b5563; /* gray-600 */
+            margin-right: auto;
+            color: white;
+        }
+
+        /* Result Display Fade-in/Slide-up Animation */
+        .result-display-hidden {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        .result-display-visible {
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+        }
+
+        /* Enhanced Action Button Hover Effect */
+        .action-btn-hover {
+            transition: all 0.2s ease-in-out;
+        }
+        .action-btn-hover:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+
+
+        /* Theme-specific styles for chat dialog */
+        body[data-theme='dark'] .chat-dialog { background-color: #1f2937; color: #f9fafb; }
+        body[data-theme='dark'] .chat-dialog::after { border-top-color: #1f2937; }
+        body[data-theme='dark'] .chat-input { background-color: #374151; border-color: #4b5563; color: #f9fafb; }
+        body[data-theme='dark'] .chat-send-btn { background-color: #2563eb; }
+        body[data-theme='dark'] .chat-send-btn:hover { background-color: #1d4ed8; }
+        body[data-theme='dark'] .chat-message.user { background-color: #3b82f6; }
+        body[data-theme='dark'] .chat-message.bot { background-color: #4b5563; }
+        body[data-theme='dark'] .chat-message.bot-loading { background-color: #4b5563; }
+
+
+        body[data-theme='white'] .chat-dialog { background-color: #ffffff; color: #1f2937; border: 1px solid #d1d5db; }
+        body[data-theme='white'] .chat-dialog::after { border-top-color: #ffffff; }
+        body[data-theme='white'] .chat-input { background-color: #f9fafb; border-color: #d1d5db; color: #1f2937; }
+        body[data-theme='white'] .chat-send-btn { background-color: #10b981; } /* green-600 */
+        body[data-theme='white'] .chat-send-btn:hover { background-color: #059669; } /* green-700 */
+        body[data-theme='white'] .chat-message.user { background-color: #34d399; } /* green-400 */
+        body[data-theme='white'] .chat-message.bot { background-color: #e5e7eb; color: #1f2937; } /* gray-200 */
+        body[data-theme='white'] .chat-message.bot-loading { background-color: #e5e7eb; color: #1f2937; }
+
+
+        body[data-theme='yellow'] .chat-dialog { background-color: #fef3c7; color: #78350f; border: 1px solid #fcd34d; }
+        body[data-theme='yellow'] .chat-dialog::after { border-top-color: #fef3c7; }
+        body[data-theme='yellow'] .chat-input { background-color: #fffbeb; border-color: #fcd34d; color: #78350f; }
+        body[data-theme='yellow'] .chat-send-btn { background-color: #f59e0b; } /* amber-500 */
+        body[data-theme='yellow'] .chat-send-btn:hover { background-color: #d97706; } /* amber-700 */
+        body[data-theme='yellow'] .chat-message.user { background-color: #fbbd23; } /* yellow-400 */
+        body[data-theme='yellow'] .chat-message.bot { background-color: #fde68a; color: #78350f; } /* yellow-200 */
+        body[data-theme='yellow'] .chat-message.bot-loading { background-color: #fde68a; color: #78350f; }
+
+
+        body[data-theme='blue'] .chat-dialog { background-color: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; }
+        body[data-theme='blue'] .chat-dialog::after { border-top-color: #dbeafe; }
+        body[data-theme='blue'] .chat-input { background-color: #eff6ff; border-color: #93c5fd; color: #1e3a8a; }
+        body[data-theme='blue'] .chat-send-btn { background-color: #3b82f6; } /* blue-500 */
+        body[data-theme='blue'] .chat-send-btn:hover { background-color: #2563eb; } /* blue-600 */
+        body[data-theme='blue'] .chat-message.user { background-color: #60a5fa; } /* blue-400 */
+        body[data-theme='blue'] .chat-message.bot { background-color: #bfdbfe; color: #1e3a8a; } /* blue-200 */
+        body[data-theme='blue'] .chat-message.bot-loading { background-color: #bfdbfe; color: #1e3a8a; }
+
+
+        /* Theme-specific styles using data-theme attribute */
+        body[data-theme='dark'] {
+            background-color: #030712; /* gray-950 */
+            color: #f9fafb; /* gray-100 */
+        }
+        body[data-theme='dark'] .header-bg { background-color: #111827; } /* gray-900 */
+        body[data-theme='dark'] .main-container-bg { background-color: #1f2937; } /* gray-800 */
+        body[data-theme='dark'] .input-bg { background-color: #374151; border-color: #4b5563; color: #f9fafb; } /* gray-700, gray-600, white */
+        body[data-theme='dark'] .action-btn-bg { background-color: #374151; color: #d1d5db; } /* gray-700, gray-300 */
+        body[data-theme='dark'] .action-btn-bg:hover { background-color: #4b5563; } /* gray-600 */
+        body[data-theme='dark'] .result-bg { background-color: #1e3a8a; border-color: #1d4ed8; } /* blue-900, blue-700 */
+        body[data-theme='dark'] .result-title { color: #93c5fd; } /* blue-300 */
+        body[data-theme='dark'] .result-text { color: #e5e7eb; } /* gray-200 */
+        body[data-theme='dark'] .greeting-title { color: #60a5fa; } /* blue-400 */
+        body[data-theme='dark'] .greeting-text { color: #9ca3af; } /* gray-400 */
+        body[data-theme='dark'] .sidebar-bg { background-color: #111827; } /* gray-900 */
+        body[data-theme='dark'] .sidebar-text { color: #d1d5db; } /* gray-300 */
+        body[data-theme='dark'] .sidebar-link-hover:hover { background-color: #374151; color: #f9fafb; } /* gray-700, white */
+        body[data-theme='dark'] .text-gray-400-dynamic { color: #9ca3af; } /* gray-400 */
+        body[data-theme='dark'] .text-gray-500-dynamic { color: #6b7280; } /* gray-500 */
+        body[data-theme='dark'] .text-gray-300-dynamic { color: #d1d5db; } /* gray-300 */
+
+
+        body[data-theme='white'] {
+            background-color: #f9fafb; /* gray-100 */
+            color: #1f2937; /* gray-800 */
+        }
+        body[data-theme='white'] .header-bg { background-color: #ffffff; } /* white */
+        body[data-theme='white'] .main-container-bg { background-color: #ffffff; } /* white */
+        body[data-theme='white'] .input-bg { background-color: #f9fafb; border-color: #d1d5db; color: #1f2937; } /* gray-50, gray-300, gray-800 */
+        body[data-theme='white'] .action-btn-bg { background-color: #e5e7eb; color: #374151; } /* gray-200, gray-700 */
+        body[data-theme='white'] .action-btn-bg:hover { background-color: #d1d5db; } /* gray-300 */
+        body[data-theme='white'] .result-bg { background-color: #dcfce7; border-color: #86efad; } /* green-100, green-300 */
+        body[data-theme='white'] .result-title { color: #16a34a; } /* green-800 */
+        body[data-theme='white'] .result-text { color: #374151; } /* gray-700 */
+        body[data-theme='white'] .greeting-title { color: #2563eb; } /* blue-600 */
+        body[data-theme='white'] .greeting-text { color: #4b5563; } /* gray-600 */
+        body[data-theme='white'] .sidebar-bg { background-color: #f9fafb; } /* gray-100 */
+        body[data-theme='white'] .sidebar-text { color: #374151; } /* gray-700 */
+        body[data-theme='white'] .sidebar-link-hover:hover { background-color: #e5e7eb; color: #1f2937; } /* gray-200, gray-800 */
+        body[data-theme='white'] .text-gray-400-dynamic { color: #6b7280; } /* gray-600 */
+        body[data-theme='white'] .text-gray-500-dynamic { color: #4b5563; } /* gray-500 */
+        body[data-theme='white'] .text-gray-300-dynamic { color: #4b5563; } /* gray-700 */
+
+
+        body[data-theme='yellow'] {
+            background-color: #fffbeb; /* yellow-50 */
+            color: #78350f; /* yellow-900 */
+        }
+        body[data-theme='yellow'] .header-bg { background-color: #fde68a; } /* yellow-200 */
+        body[data-theme='yellow'] .main-container-bg { background-color: #fef3c7; } /* yellow-100 */
+        body[data-theme='yellow'] .input-bg { background-color: #fffbeb; border-color: #fcd34d; color: #78350f; } /* yellow-50, yellow-300, yellow-900 */
+        body[data-theme='yellow'] .action-btn-bg { background-color: #fbbf24; color: #78350f; } /* yellow-300, yellow-900 */
+        body[data-theme='yellow'] .action-btn-bg:hover { background-color: #facc15; } /* yellow-400 */
+        body[data-theme='yellow'] .result-bg { background-color: #fff7ed; border-color: #fdba74; } /* orange-100, orange-300 */
+        body[data-theme='yellow'] .result-title { color: #c2410c; } /* orange-800 */
+        body[data-theme='yellow'] .result-text { color: #78350f; } /* yellow-900 */
+        body[data-theme='yellow'] .greeting-title { color: #ea580c; } /* orange-600 */
+        body[data-theme='yellow'] .greeting-text { color: #b45309; } /* yellow-800 */
+        body[data-theme='yellow'] .sidebar-bg { background-color: #fde68a; } /* yellow-200 */
+        body[data-theme='yellow'] .sidebar-text { color: #b45309; } /* yellow-800 */
+        body[data-theme='yellow'] .sidebar-link-hover:hover { background-color: #fbbf24; color: #78350f; } /* yellow-300, yellow-900 */
+        body[data-theme='yellow'] .text-gray-400-dynamic { color: #b45309; } /* yellow-800 */
+        body[data-theme='yellow'] .text-gray-500-dynamic { color: #92400e; } /* yellow-900 */
+        body[data-theme='yellow'] .text-gray-300-dynamic { color: #b45309; } /* yellow-800 */
+
+
+        body[data-theme='blue'] {
+            background-color: #eff6ff; /* blue-50 */
+            color: #1e3a8a; /* blue-900 */
+        }
+        body[data-theme='blue'] .header-bg { background-color: #bfdbfe; } /* blue-200 */
+        body[data-theme='blue'] .main-container-bg { background-color: #dbeafe; } /* blue-100 */
+        body[data-theme='blue'] .input-bg { background-color: #eff6ff; border-color: #93c5fd; color: #1e3a8a; } /* blue-50, blue-300, blue-900 */
+        body[data-theme='blue'] .action-btn-bg { background-color: #93c5fd; color: #1e3a8a; } /* blue-300, blue-900 */
+        body[data-theme='blue'] .action-btn-bg:hover { background-color: #60a5fa; } /* blue-400 */
+        body[data-theme='blue'] .result-bg { background-color: #e0e7ff; border-color: #a5b4fc; } /* indigo-100, indigo-300 */
+        body[data-theme='blue'] .result-title { color: #3730a3; } /* indigo-800 */
+        body[data-theme='blue'] .result-text { color: #1e3a8a; } /* blue-900 */
+        body[data-theme='blue'] .greeting-title { color: #4f46e5; } /* indigo-600 */
+        body[data-theme='blue'] .greeting-text { color: #2563eb; } /* blue-800 */
+        body[data-theme='blue'] .sidebar-bg { background-color: #bfdbfe; } /* blue-200 */
+        body[data-theme='blue'] .sidebar-text { color: #2563eb; } /* blue-800 */
+        body[data-theme='blue'] .sidebar-link-hover:hover { background-color: #93c5fd; color: #1e3a8a; } /* blue-300, blue-900 */
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="background-color: #000;">
+
+    <!-- Overlay for when sidebar is open -->
+    <div id="overlay" class="overlay"></div>
+
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar sidebar-bg p-4 flex flex-col justify-between shadow-lg">
+        <div>
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-semibold text-gray-200-dynamic">Settings</h3>
+                <button id="closeSidebarBtn" class="text-gray-400-dynamic hover:text-white transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <nav>
+                <a href="#" class="flex items-center px-3 py-2 rounded-lg sidebar-text sidebar-link-hover mb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    History
+                </a>
+                <a href="#" class="flex items-center px-3 py-2 rounded-lg sidebar-text sidebar-link-hover mb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2V5a2 2 0 00-2-2h-2.586a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 009.586 1H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    Saved Items
+                </a>
+                <!-- New Data Test link -->
+                <a href="#" class="flex items-center px-3 py-2 rounded-lg sidebar-text sidebar-link-hover mb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none" />
+                        <path d="M8 12h8M12 8v8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                    Data Test
+                </a>
+                
+                <!-- Theme Section -->
+                <div class="mt-4 pt-4 border-t border-gray-700-dynamic">
+                    <button id="themeToggleBtn" class="flex items-center px-3 py-2 rounded-lg sidebar-text sidebar-link-hover w-full text-left">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2V5a2 2 0 00-2-2h-2.586a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 009.586 1H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        Theme
+                        <svg id="themeArrow" class="h-4 w-4 ml-auto transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div id="themeOptions" class="pl-8 mt-2 hidden">
+                        <button class="block w-full text-left px-3 py-2 rounded-lg text-gray-300-dynamic hover:bg-gray-700-dynamic transition-colors theme-option" data-theme="dark">Dark</button>
+                        <button class="block w-full text-left px-3 py-2 rounded-lg text-gray-300-dynamic hover:bg-gray-700-dynamic transition-colors theme-option" data-theme="white">White</button>
+                        <button class="block w-full text-left px-3 py-2 rounded-lg text-gray-300-dynamic hover:bg-gray-700-dynamic transition-colors theme-option" data-theme="yellow">Yellow</button>
+                        <button class="block w-full text-left px-3 py-2 rounded-lg text-gray-300-dynamic hover:bg-gray-700-dynamic transition-colors theme-option" data-theme="blue">Blue</button>
+                    </div>
+                </div>
+
+                <a href="#" class="flex items-center px-3 py-2 rounded-lg sidebar-text sidebar-link-hover mt-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9.228a4.5 4.5 0 000 6.364M12 20h4a2 2 0 002-2V6a2 2 0 00-2-2H8a2 2 0 00-2 2v12a2 2 0 002 2zm8.228-10.772a4.5 4.5 0 00-6.364 0L12 11.228l-1.864-1.864a4.5 4.5 0 00-6.364 6.364L12 18.772l1.864-1.864a4.5 4.5 0 006.364 0z" />
+                    </svg>
+                    Help & Feedback
+                </a>
+            </nav>
+        </div>
+        <div class="text-gray-500-dynamic text-sm">
+            <p>&copy; 2023 AI Assistant</p>
+        </div>
+    </div>
+
+    <!-- Top Bar -->
+    <header class="w-full header-bg p-4 flex items-center justify-between shadow-md" style="background-color: #000;">
+        <div class="flex items-center space-x-4">
+            <button id="openSidebarBtn" class="text-gray-400-dynamic hover:text-white transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+        </div>
+        <div class="flex items-center space-x-4">
+            <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm">S</div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col items-center justify-between p-4 sm:p-8 relative" style="background-color: #000;">
+        <!-- Central Greeting -->
+        <div id="greetingSection" class="flex-1 flex flex-col items-center justify-center text-center">
+            <h2 class="text-3xl sm:text-4xl font-bold greeting-title mb-2" style="color: #fff;">Hello, User</h2>
+            <p class="text-lg sm:text-xl greeting-text" style="color: #fff;">How can I help you today?</p>
+        </div>
+
+        <!-- Input and Action Area at the bottom -->
+        <div class="w-full max-w-2xl main-container-bg rounded-3xl shadow-xl p-4 flex flex-col" style="background-color: #000;">
+            <!-- Main Input Textarea -->
+            <div id="mainInputContainer" class="relative mb-4">
+                <textarea
+                    id="mainInput"
+                    class="w-full p-4 pr-12 rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 overflow-hidden input-bg"
+                    placeholder="Ask anything"
+                    rows="1"
+                    style="min-height: 56px; background-color: #000; color: #fff; border: 1px solid #222;"
+                ></textarea>
+                <button class="absolute right-3 bottom-3 text-gray-400-dynamic hover:text-white transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7v0a7 7 0 01-7-7v0a7 7 0 017-7v0a7 7 0 017 7v0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 18v3m0 0h3m-3 0h-3" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Conditional Inputs Container (appears above action buttons) -->
+            <div id="conditionalInputs" class="mb-4">
+                <!-- PDF Upload Input (initially hidden) -->
+                <div id="pdfUploadDiv" class="mt-2 hidden">
+                    <label for="pdf-upload" class="block text-gray-400-dynamic text-sm font-medium mb-2">
+                        Upload PDF File:
+                    </label>
+                    <input
+                        id="pdf-upload"
+                        type="file"
+                        accept=".pdf"
+                        class="block w-full text-sm text-gray-300-dynamic file:mr-4 file:py-2 file:px-4
+                               file:rounded-full file:border-0 file:text-sm file:font-semibold
+                               file:bg-blue-600 file:text-white hover:file:bg-blue-700 transition-colors"
+                    />
+                    <p id="selectedFileName" class="mt-2 text-sm text-gray-400-dynamic"></p>
+                </div>
+
+                <!-- YouTube URL Input (initially hidden) -->
+                <div id="youtubeUrlDiv" class="mt-2 hidden">
+                    <label for="youtube-url" class="block text-gray-400-dynamic text-sm font-medium mb-2">
+                        YouTube Video URL:
+                    </label>
+                    <input
+                        id="youtube-url"
+                        type="url"
+                        class="w-full p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 input-bg"
+                        placeholder="e.g., https://www.youtube.com/watch?v=..."
+                    />
+                </div>
+
+                <!-- Translate Language Select (initially hidden) -->
+                <div id="translateLanguageDiv" class="mt-2 hidden">
+                    <label for="language-select" class="block text-gray-400-dynamic text-sm font-medium mb-2">
+                        Translate to:
+                    </label>
+                    <select
+                        id="language-select"
+                        class="w-full p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 input-bg"
+                    >
+                        <option value="French">French</option>
+                        <option value="Spanish">Spanish</option>
+                        <option value="German">German</option>
+                        <option value="Italian">Italian</option>
+                        <option value="Japanese">Japanese</option>
+                        <option value="Chinese">Chinese</option>
+                        <option value="Hindi">Hindi</option>
+                        <option value="Arabic">Arabic</option>
+                        <option value="Russian">Russian</option>
+                        <option value="Portuguese">Portuguese</option>
+                        <option value="Korean">Korean</option>
+                        <option value="North Korean">North Korean</option>
+                        <option value="English">English</option>
+                        <!-- Add more languages as needed -->
+                    </select>
+                    <button id="backFromTranslateBtn" class="mt-4 px-4 py-2 rounded bg-gray-700 text-white hover:bg-gray-600">Back</button>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-wrap gap-2 justify-center">
+                <button id="summarizeTextBtn" class="flex items-center px-4 py-2 rounded-full text-sm transition-colors duration-200 action-btn-bg action-btn-hover">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Summarize Text
+                </button>
+                <button id="summarizePdfBtn" class="flex items-center px-4 py-2 rounded-full text-sm transition-colors duration-200 action-btn-bg action-btn-hover">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    Summarize PDF
+                </button>
+                <button id="summarizeYoutubeBtn" class="flex items-center px-4 py-2 rounded-full text-sm transition-colors duration-200 action-btn-bg action-btn-hover">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M4 7v10a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2z" />
+                    </svg>
+                    Summarize YouTube
+                </button>
+                <button id="translateTextBtn" class="flex items-center px-4 py-2 rounded-full text-sm transition-colors duration-200 action-btn-bg action-btn-hover">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8m-2 2.5V19a2 2 0 01-2 2H7a2 2 0 01-2-2v-8.5m14-6H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2z" />
+                    </svg>
+                    Translate Text
+                </button>
+            </div>
+            
+            <p id="errorDisplay" class="text-red-500 text-sm mt-4 text-center"></p>
+
+            <!-- Result Display -->
+            <div id="resultDisplay" class="mt-6 p-4 rounded-lg shadow-inner hidden result-bg result-display-hidden">
+                <h3 class="text-lg font-semibold result-title mb-2">Result:</h3>
+                <p id="resultText" class="whitespace-pre-wrap result-text"></p>
+            </div>
+
+            <!-- Loading Indicator -->
+            <div id="loadingIndicator" class="mt-6 p-4 rounded-lg shadow-inner flex items-center justify-center hidden main-container-bg">
+                <!-- Lottie animation for main loading -->
+                <dotlottie-wc
+                    src="https://lottie.host/d5545a2b-7d89-43a3-a530-3893db2e6488/DAjask9tZe.lottie"
+                    style="width: 60px; height: 60px;"
+                    speed="1"
+                    autoplay
+                    loop
+                ></dotlottie-wc>
+                <p class="ml-3 text-gray-400-dynamic">Processing...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Helping Bot (Lottie Animation) -->
+    <div id="helpingBot" class="helping-bot">
+        <dotlottie-wc
+            src="https://lottie.host/b4800023-2e8c-498b-b63d-48df3b8a649b/shjBNenXJw.lottie"
+            style="width: 100%; height: 100%;"
+            speed="1"
+            autoplay
+            loop
+        ></dotlottie-wc>
+    </div>
+
+    <!-- Robot Chat Dialog -->
+    <div id="robotChatDialog" class="chat-dialog hidden">
+        <div id="chatMessages" class="chat-messages">
+            <div class="chat-message bot">Hello! How can I assist you today?</div>
+        </div>
+        <div class="chat-input-container">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Type your message...">
+            <button id="sendChatBtn" class="chat-send-btn">Send</button>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const mainInputContainer = document.getElementById('mainInputContainer');
+        const mainInput = document.getElementById('mainInput');
+        const pdfUploadDiv = document.getElementById('pdfUploadDiv');
+        const pdfUploadInput = document.getElementById('pdf-upload');
+        const selectedFileNameDisplay = document.getElementById('selectedFileName');
+        const youtubeUrlDiv = document.getElementById('youtubeUrlDiv');
+        const youtubeUrlInput = document.getElementById('youtube-url');
+        const translateLanguageDiv = document.getElementById('translateLanguageDiv');
+        const languageSelect = document.getElementById('language-select');
+        const errorDisplay = document.getElementById('errorDisplay');
+        const resultDisplay = document.getElementById('resultDisplay');
+        const resultText = document.getElementById('resultText');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const greetingSection = document.getElementById('greetingSection');
+
+        // Sidebar Elements
+        const sidebar = document.getElementById('sidebar');
+        const openSidebarBtn = document.getElementById('openSidebarBtn');
+        const closeSidebarBtn = document.getElementById('closeSidebarBtn');
+        const overlay = document.getElementById('overlay');
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+        const themeOptions = document.getElementById('themeOptions');
+        const themeArrow = document.getElementById('themeArrow');
+        const themeOptionButtons = document.querySelectorAll('.theme-option');
+
+        // Helping Bot Element
+        const helpingBot = document.getElementById('helpingBot');
+        const robotChatDialog = document.getElementById('robotChatDialog');
+        const chatMessagesDiv = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const sendChatBtn = document.getElementById('sendChatBtn');
+
+        // State variables (mimicking React useState)
+        let currentAction = null;
+        let selectedFile = null;
+
+        // Function to update UI based on loading state
+        function setIsLoading(loading) {
+            const buttons = document.querySelectorAll('.flex-wrap button');
+            buttons.forEach(button => {
+                button.disabled = loading;
+                if (loading) {
+                    button.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    button.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            });
+            if (loading) {
+                loadingIndicator.classList.remove('hidden');
+                resultDisplay.classList.add('hidden');
+                resultDisplay.classList.remove('result-display-visible'); // Ensure hidden state for animation
+                resultDisplay.classList.add('result-display-hidden'); // Apply hidden state for animation
+                greetingSection.classList.add('hidden'); // Hide greeting when processing
+            } else {
+                loadingIndicator.classList.add('hidden');
+                if (!resultText.textContent) { // Show greeting only if no result is displayed
+                    greetingSection.classList.remove('hidden');
+                }
+            }
+        }
+
+        // Function to set error message
+        function setError(message) {
+            errorDisplay.textContent = message;
+            errorDisplay.classList.remove('hidden');
+        }
+
+        // Function to set result text
+        function setResult(text) {
+            resultText.textContent = text;
+            resultDisplay.classList.remove('hidden');
+            resultDisplay.classList.remove('result-display-hidden'); // Remove hidden state
+            resultDisplay.classList.add('result-display-visible'); // Add visible state for animation
+            greetingSection.classList.add('hidden'); // Hide greeting when result is displayed
+            // Append main area result to chat log as 'action'
+            appendToChatLog('action', text);
+        }
+
+        // Utility function to clean model responses
+        function cleanModelResponse(text) {
+            // Remove lines that are follow-up questions or suggestions
+            return text.split('\n').filter(line => {
+                const lower = line.trim().toLowerCase();
+                return !lower.startsWith('would you like me') &&
+                       !lower.startsWith('do you want me') &&
+                       !lower.startsWith('can i help you') &&
+                       !lower.startsWith('let me know if');
+            }).join('\n').trim();
+        }
+
+        // Handles file selection for PDF summarization
+        pdfUploadInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (file && file.type === 'application/pdf') {
+                selectedFile = file;
+                selectedFileNameDisplay.textContent = `Selected: ${file.name}`;
+                setError('');
+                setIsLoading(true);
+                // Immediately start summarization
+                const apiUrl = "http://localhost:8000/summarize-pdf";
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const apiResult = await response.json();
+                    if (apiResult.response) {
+                        setResult(cleanModelResponse(apiResult.response));
+                    } else {
+                        setError('Failed to get a response. Please try again.');
+                        console.error('Unexpected API response structure:', apiResult);
+                    }
+                } catch (err) {
+                    setError('An error occurred. Please try again.');
+                    console.error('API call error:', err);
+                } finally {
+                    setIsLoading(false);
+                }
+            } else {
+                selectedFile = null;
+                selectedFileNameDisplay.textContent = '';
+                setError('Please select a PDF file.');
+            }
+        });
+
+        // Function to hide all conditional inputs and manage mainInput visibility
+        function hideAllConditionalInputs() {
+            pdfUploadDiv.classList.add('hidden');
+            youtubeUrlDiv.classList.add('hidden');
+            translateLanguageDiv.classList.add('hidden');
+            selectedFile = null; // Clear selected file when switching
+            selectedFileNameDisplay.textContent = '';
+            // youtubeUrlInput.value = ''; // Do NOT clear here
+            errorDisplay.classList.add('hidden'); // Hide error when switching inputs
+        }
+
+        // Generic function to handle all summarization and translation actions
+        async function handleAction(actionType) {
+            setError('');
+            setResult('');
+            setIsLoading(true);
+            currentAction = actionType; // Set the current action for conditional rendering
+
+            // Hide/show conditional inputs and main input based on actionType
+            hideAllConditionalInputs(); // Always hide all conditional inputs first
+
+            // Determine visibility of mainInputContainer and specific conditional inputs
+            if (actionType === 'summarizeText') {
+                mainInputContainer.classList.remove('hidden'); // Show main input for text summarization
+            } else if (actionType === 'summarizePdf') {
+                mainInputContainer.classList.add('hidden'); // Hide main input for PDF
+                pdfUploadDiv.classList.remove('hidden');
+                setError('');
+                setResult('');
+                return;
+            } else if (actionType === 'summarizeYoutube') {
+                mainInputContainer.classList.add('hidden'); // Hide main input for YouTube
+                youtubeUrlDiv.classList.remove('hidden');
+            } else if (actionType === 'translateText') {
+                mainInputContainer.classList.add('hidden'); // Hide main input for Translate
+                translateLanguageDiv.classList.remove('hidden');
+            }
+
+            let prompt = '';
+            let inputData = '';
+
+            try {
+                if (actionType === 'summarizeText') {
+                    inputData = mainInput.value.trim();
+                    if (!inputData) {
+                        setError('Please enter some text to summarize.');
+                        setIsLoading(false);
+                        return;
+                    }
+                    // Log the user's question/input
+                    appendToChatLog('user-action', inputData);
+                    prompt = `Summarize the following text concisely: ${inputData}`;
+                } else if (actionType === 'summarizePdf') {
+                    if (!selectedFile) {
+                        setError('Please select a PDF file first.');
+                        setIsLoading(false);
+                        return;
+                    }
+                    // Log the user's PDF selection
+                    appendToChatLog('user-action', `PDF file selected: ${selectedFile.name}`);
+                    const apiUrl = "http://localhost:8000/summarize-pdf";
+                    const formData = new FormData();
+                    formData.append('file', selectedFile);
+                    try {
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const apiResult = await response.json();
+                        if (apiResult.response) {
+                            setResult(cleanModelResponse(apiResult.response));
+                        } else {
+                            setError('Failed to get a response. Please try again.');
+                            console.error('Unexpected API response structure:', apiResult);
+                        }
+                    } catch (err) {
+                        setError('An error occurred. Please try again.');
+                        console.error('API call error:', err);
+                    } finally {
+                    setIsLoading(false);
+                    }
+                } else if (actionType === 'summarizeYoutube') {
+                    inputData = youtubeUrlInput.value.trim();
+                    if (!inputData) {
+                        setError('Please enter a YouTube video URL.');
+                        setIsLoading(false);
+                        return;
+                    }
+                    if (!inputData.includes('youtube.com/watch?v=') && !inputData.includes('youtu.be/')) {
+                        setError('Please enter a valid YouTube video URL.');
+                        setIsLoading(false);
+                        return;
+                    }
+                    // Log the user's YouTube URL
+                    appendToChatLog('user-action', `YouTube URL: ${inputData}`);
+                    // Use the new backend endpoint for YouTube summarization
+                    try {
+                        const response = await fetch('http://localhost:8000/summarize-youtube', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ youtube_url: inputData })
+                        });
+                        const apiResult = await response.json();
+                        if (apiResult.summary) {
+                            setResult(`**Summary:**\n${cleanModelResponse(apiResult.summary)}\n\n---\n**Transcript:**\n${apiResult.transcript}`);
+                        } else if (apiResult.error) {
+                            setError(apiResult.error);
+                        } else {
+                            setError('Failed to get a response. Please try again.');
+                            console.error('Unexpected API response structure:', apiResult);
+                        }
+                    } catch (err) {
+                        setError('An error occurred. Please try again.');
+                        console.error('API call error:', err);
+                    } finally {
+                    setIsLoading(false);
+                    }
+                    return;
+                } else if (actionType === 'translateText') {
+                    inputData = mainInput.value.trim();
+                    const targetLanguage = languageSelect.value;
+                    if (!inputData) {
+                        setError('Please enter some text to translate.');
+                        setIsLoading(false);
+                        return;
+                    }
+                    // Log the user's translation request
+                    appendToChatLog('user-action', `Translate to ${targetLanguage}: ${inputData}`);
+                    // Call the /translate endpoint directly
+                    const apiUrl = "http://localhost:8000/translate";
+                    try {
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ text: inputData, target_language: targetLanguage })
+                        });
+                        const apiResult = await response.json();
+                        if (apiResult.response) {
+                            setResult(cleanModelResponse(apiResult.response));
+                        } else if (apiResult.error) {
+                            setError(apiResult.error);
+                        } else {
+                            setError('Failed to get a response. Please try again.');
+                            console.error('Unexpected API response structure:', apiResult);
+                        }
+                    } catch (err) {
+                        setError('An error occurred. Please try again.');
+                        console.error('API call error:', err);
+                    } finally {
+                        setIsLoading(false);
+                    }
+                    return;
+                }
+
+                // Use the FastAPI backend for summarization/translation
+                const apiUrl = "http://localhost:8000/generate";
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt })
+                });
+                const apiResult = await response.json();
+
+                if (apiResult.response) {
+                    setResult(cleanModelResponse(apiResult.response));
+                } else {
+                    setError('Failed to get a response. Please try again.');
+                    console.error('Unexpected API response structure:', apiResult);
+                }
+            } catch (err) {
+                setError('An error occurred. Please try again.');
+                console.error('API call error:', err);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        // Event Listeners for Action Buttons
+        document.getElementById('summarizeTextBtn').addEventListener('click', () => handleAction('summarizeText'));
+        document.getElementById('summarizePdfBtn').addEventListener('click', () => handleAction('summarizePdf'));
+        document.getElementById('summarizeYoutubeBtn').addEventListener('click', () => handleAction('summarizeYoutube'));
+        document.getElementById('translateTextBtn').addEventListener('click', () => handleAction('translateText'));
+
+        // Dynamic textarea height adjustment
+        mainInput.addEventListener('input', () => {
+            mainInput.style.height = 'auto'; // Reset height to recalculate
+            mainInput.style.height = Math.min(150, Math.max(56, mainInput.scrollHeight)) + 'px'; // Max 150px, Min 56px
+        });
+
+        // Initialize textarea height
+        window.onload = () => {
+            mainInput.style.height = Math.min(150, Math.max(56, mainInput.scrollHeight)) + 'px';
+            applySavedTheme(); // Apply theme on load
+        };
+
+        // Sidebar toggle logic
+        openSidebarBtn.addEventListener('click', () => {
+            sidebar.classList.add('open');
+            overlay.classList.add('open');
+        });
+
+        closeSidebarBtn.addEventListener('click', () => {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('open');
+        });
+
+        overlay.addEventListener('click', () => {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('open');
+        });
+
+        // Theme Toggle Logic
+        themeToggleBtn.addEventListener('click', () => {
+            themeOptions.classList.toggle('hidden');
+            themeArrow.classList.toggle('rotate-180'); // Rotate arrow
+        });
+
+        themeOptionButtons.forEach(button => {
+            button.addEventListener('click', (event) => {
+                const theme = event.target.dataset.theme;
+                setTheme(theme);
+                localStorage.setItem('selectedTheme', theme); // Save theme to local storage
+                sidebar.classList.remove('open'); // Close sidebar after selecting theme
+                overlay.classList.remove('open');
+            });
+        });
+
+        // Function to set the theme
+        function setTheme(theme) {
+            document.body.setAttribute('data-theme', theme);
+
+            // Dynamically update classes for elements that need specific color adjustments
+            const header = document.querySelector('header');
+            const mainContainer = document.querySelector('.main-container-bg');
+            const inputElements = document.querySelectorAll('.input-bg');
+            const actionButtons = document.querySelectorAll('.action-btn-bg');
+            const resultSection = document.querySelector('.result-bg');
+            const resultTitle = document.querySelector('.result-title');
+            const resultTextContent = document.querySelector('.result-text');
+            const greetingTitle = document.querySelector('.greeting-title');
+            const greetingText = document.querySelector('.greeting-text');
+            const sidebarElement = document.querySelector('.sidebar-bg');
+            const sidebarLinks = document.querySelectorAll('.sidebar-text');
+            const dynamicText400 = document.querySelectorAll('.text-gray-400-dynamic');
+            const dynamicText500 = document.querySelectorAll('.text-gray-500-dynamic');
+            const dynamicText300 = document.querySelectorAll('.text-gray-300-dynamic');
+            const sidebarLinkHovers = document.querySelectorAll('.sidebar-link-hover');
+            const borderGray700Dynamic = document.querySelector('.border-gray-700-dynamic');
+            const chatDialog = document.getElementById('robotChatDialog');
+            const chatInputEl = document.getElementById('chatInput');
+            const sendChatButton = document.getElementById('sendChatBtn');
+            const chatMessages = document.querySelectorAll('.chat-message');
+
+
+            // Reset all dynamic classes first
+            const elementsToReset = [
+                header, mainContainer, resultSection, resultTitle, resultTextContent,
+                greetingTitle, greetingText, sidebarElement, borderGray700Dynamic, chatDialog,
+                chatInputEl, sendChatButton
+            ];
+            elementsToReset.forEach(el => {
+                if (el) {
+                    el.classList.remove(
+                        'bg-gray-900', 'bg-white', 'bg-yellow-200', 'bg-blue-200',
+                        'bg-gray-800', 'bg-yellow-100', 'bg-blue-100',
+                        'bg-blue-900', 'bg-green-100', 'bg-orange-100', 'bg-indigo-100',
+                        'border-blue-700', 'border-green-300', 'border-orange-300', 'border-indigo-300',
+                        'text-gray-200', 'text-gray-800', 'text-yellow-900', 'text-blue-900',
+                        'text-blue-300', 'text-green-800', 'text-orange-800', 'text-indigo-800',
+                        'text-gray-700',
+                        'text-blue-400', 'text-blue-600', 'text-orange-600', 'text-indigo-600',
+                        'text-gray-400', 'text-gray-600', 'text-yellow-800', 'text-blue-800',
+                        'text-gray-500',
+                        'border-gray-700',
+                        'bg-blue-600', 'bg-green-500', 'bg-yellow-400', 'bg-blue-400',
+                        'border', 'border-gray-300', 'border-yellow-300', 'border-blue-300', // For chat dialog border
+                        'bg-gray-700', 'border-gray-600', 'text-white', // chat input
+                        'bg-blue-600', 'hover:bg-blue-700', // chat send btn
+                        'bg-green-600', 'hover:bg-green-700',
+                        'bg-amber-500', 'hover:bg-amber-700',
+                        'bg-blue-500', 'hover:bg-blue-600'
+                    );
+                    // Remove specific ::after border-top-color for chat dialog
+                    if (el.id === 'robotChatDialog') {
+                        el.style.borderTopColor = ''; // Reset inline style
+                    }
+                }
+            });
+
+            inputElements.forEach(el => {
+                el.classList.remove(
+                    'bg-gray-700', 'bg-gray-50', 'bg-yellow-50', 'bg-blue-50',
+                    'border-gray-600', 'border-gray-300', 'border-yellow-300', 'border-blue-300',
+                    'text-white', 'text-gray-800', 'text-yellow-900', 'text-blue-900'
+                );
+            });
+
+            actionButtons.forEach(el => {
+                el.classList.remove(
+                    'bg-gray-700', 'bg-gray-200', 'bg-yellow-300', 'bg-blue-300',
+                    'text-gray-300', 'text-gray-700', 'text-yellow-900', 'text-blue-900',
+                    'hover:bg-gray-600', 'hover:bg-gray-300', 'hover:bg-yellow-400', 'hover:bg-blue-400'
+                );
+            });
+
+            sidebarLinks.forEach(el => {
+                el.classList.remove(
+                    'text-gray-300', 'text-gray-700', 'text-yellow-800', 'text-blue-800'
+                );
+            });
+
+            sidebarLinkHovers.forEach(el => {
+                el.classList.remove(
+                    'hover:bg-gray-700', 'hover:bg-gray-200', 'hover:bg-yellow-300', 'hover:bg-blue-300',
+                    'hover:text-white', 'hover:text-gray-800', 'hover:text-yellow-900', 'hover:text-blue-900'
+                );
+            });
+
+            dynamicText400.forEach(el => {
+                el.classList.remove('text-gray-400', 'text-gray-600', 'text-yellow-800', 'text-blue-800');
+            });
+            dynamicText500.forEach(el => {
+                el.classList.remove('text-gray-500', 'text-gray-500', 'text-yellow-900', 'text-blue-900');
+            });
+            dynamicText300.forEach(el => {
+                el.classList.remove('text-gray-300', 'text-gray-700', 'text-yellow-800', 'text-blue-800');
+            });
+
+            chatMessages.forEach(msg => {
+                msg.classList.remove(
+                    'bg-blue-500', 'bg-gray-600', 'text-white',
+                    'bg-green-400', 'bg-gray-200', 'text-gray-800',
+                    'bg-yellow-400', 'bg-yellow-200', 'text-yellow-900',
+                    'bg-blue-400', 'bg-blue-200', 'text-blue-900'
+                );
+            });
+
+
+            // Apply theme-specific classes
+            if (theme === 'dark') {
+                header.classList.add('bg-gray-900');
+                mainContainer.classList.add('bg-gray-800');
+                inputElements.forEach(el => el.classList.add('bg-gray-700', 'border-gray-600', 'text-white'));
+                actionButtons.forEach(el => el.classList.add('bg-gray-700', 'text-gray-300', 'hover:bg-gray-600'));
+                resultSection.classList.add('bg-blue-900', 'border-blue-700');
+                resultTitle.classList.add('text-blue-300');
+                resultTextContent.classList.add('text-gray-200');
+                greetingTitle.classList.add('text-blue-400');
+                greetingText.classList.add('text-gray-400');
+                sidebarElement.classList.add('bg-gray-900');
+                sidebarLinks.forEach(el => el.classList.add('text-gray-300'));
+                sidebarLinkHovers.forEach(el => el.classList.add('hover:bg-gray-700', 'hover:text-white'));
+                dynamicText400.forEach(el => el.classList.add('text-gray-400'));
+                dynamicText500.forEach(el => el.classList.add('text-gray-500'));
+                dynamicText300.forEach(el => el.classList.add('text-gray-300'));
+                if (borderGray700Dynamic) borderGray700Dynamic.classList.add('border-gray-700');
+                if (chatDialog) chatDialog.classList.add('bg-gray-800', 'text-gray-100');
+                if (chatDialog) chatDialog.style.borderTopColor = '#1f2937'; // Match dialog background for caret
+                if (chatInputEl) chatInputEl.classList.add('bg-gray-700', 'border-gray-600', 'text-white');
+                if (sendChatButton) sendChatButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                chatMessages.forEach(msg => {
+                    if (msg.classList.contains('user')) {
+                        msg.classList.add('bg-blue-500', 'text-white');
+                    } else if (msg.classList.contains('bot') || msg.classList.contains('bot-loading')) {
+                        msg.classList.add('bg-gray-600', 'text-white');
+                    }
+                });
+
+            } else if (theme === 'white') {
+                header.classList.add('bg-white');
+                mainContainer.classList.add('bg-white');
+                inputElements.forEach(el => el.classList.add('bg-gray-50', 'border-gray-300', 'text-gray-800'));
+                actionButtons.forEach(el => el.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300'));
+                resultSection.classList.add('bg-green-100', 'border-green-300');
+                resultTitle.classList.add('text-green-800');
+                resultTextContent.classList.add('text-gray-700');
+                greetingTitle.classList.add('text-blue-600');
+                greetingText.classList.add('text-gray-600');
+                sidebarElement.classList.add('bg-gray-100');
+                sidebarLinks.forEach(el => el.classList.add('text-gray-700'));
+                sidebarLinkHovers.forEach(el => el.classList.add('hover:bg-gray-200', 'hover:text-gray-800'));
+                dynamicText400.forEach(el => el.classList.add('text-gray-600'));
+                dynamicText500.forEach(el => el.classList.add('text-gray-500'));
+                dynamicText300.forEach(el => el.classList.add('text-gray-700'));
+                if (borderGray700Dynamic) borderGray700Dynamic.classList.add('border-gray-200');
+                if (chatDialog) chatDialog.classList.add('bg-white', 'text-gray-800', 'border', 'border-gray-300');
+                if (chatDialog) chatDialog.style.borderTopColor = '#ffffff';
+                if (chatInputEl) chatInputEl.classList.add('bg-gray-50', 'border-gray-300', 'text-gray-800');
+                if (sendChatButton) sendChatButton.classList.add('bg-green-600', 'hover:bg-green-700');
+                chatMessages.forEach(msg => {
+                    if (msg.classList.contains('user')) {
+                        msg.classList.add('bg-green-400', 'text-white');
+                    } else if (msg.classList.contains('bot') || msg.classList.contains('bot-loading')) {
+                        msg.classList.add('bg-gray-200', 'text-gray-800');
+                    }
+                });
+
+            } else if (theme === 'yellow') {
+                header.classList.add('bg-yellow-200');
+                mainContainer.classList.add('bg-yellow-100');
+                inputElements.forEach(el => el.classList.add('bg-yellow-50', 'border-yellow-300', 'text-yellow-900'));
+                actionButtons.forEach(el => el.classList.add('bg-yellow-300', 'text-yellow-900', 'hover:bg-yellow-400'));
+                resultSection.classList.add('bg-orange-100', 'border-orange-300');
+                resultTitle.classList.add('text-orange-800');
+                resultTextContent.classList.add('text-yellow-900');
+                greetingTitle.classList.add('text-orange-600');
+                greetingText.classList.add('text-yellow-800');
+                sidebarElement.classList.add('bg-yellow-200');
+                sidebarLinks.forEach(el => el.classList.add('text-yellow-800'));
+                sidebarLinkHovers.forEach(el => el.classList.add('hover:bg-yellow-300', 'hover:text-yellow-900'));
+                dynamicText400.forEach(el => el.classList.add('text-yellow-800'));
+                dynamicText500.forEach(el => el.classList.add('text-yellow-900'));
+                dynamicText300.forEach(el => el.classList.add('text-yellow-800'));
+                if (borderGray700Dynamic) borderGray700Dynamic.classList.add('border-yellow-300');
+                if (chatDialog) chatDialog.classList.add('bg-yellow-100', 'text-yellow-900', 'border', 'border-yellow-300');
+                if (chatDialog) chatDialog.style.borderTopColor = '#fef3c7';
+                if (chatInputEl) chatInputEl.classList.add('bg-yellow-50', 'border-yellow-300', 'text-yellow-900');
+                if (sendChatButton) sendChatButton.classList.add('bg-amber-500', 'hover:bg-amber-700');
+                chatMessages.forEach(msg => {
+                    if (msg.classList.contains('user')) {
+                        msg.classList.add('bg-yellow-400', 'text-yellow-900');
+                    } else if (msg.classList.contains('bot') || msg.classList.contains('bot-loading')) {
+                        msg.classList.add('bg-yellow-200', 'text-yellow-900');
+                    }
+                });
+
+            } else if (theme === 'blue') {
+                header.classList.add('bg-blue-200');
+                mainContainer.classList.add('bg-blue-100');
+                inputElements.forEach(el => el.classList.add('bg-blue-50', 'border-blue-300', 'text-blue-900'));
+                actionButtons.forEach(el => el.classList.add('bg-blue-300', 'text-blue-900', 'hover:bg-blue-400'));
+                resultSection.classList.add('bg-indigo-100', 'border-indigo-300');
+                resultTitle.classList.add('text-indigo-800');
+                resultTextContent.classList.add('text-blue-900');
+                greetingTitle.classList.add('text-indigo-600');
+                greetingText.classList.add('text-blue-800');
+                sidebarElement.classList.add('bg-blue-200');
+                sidebarLinks.forEach(el => el.classList.add('text-blue-800'));
+                sidebarLinkHovers.forEach(el => el.classList.add('hover:bg-blue-300', 'hover:text-blue-900'));
+                dynamicText400.forEach(el => el.classList.add('text-blue-800'));
+                dynamicText500.forEach(el => el.classList.add('text-blue-900'));
+                dynamicText300.forEach(el => el.classList.add('text-blue-800'));
+                if (borderGray700Dynamic) borderGray700Dynamic.classList.add('border-blue-300');
+                if (chatDialog) chatDialog.classList.add('bg-blue-100', 'text-blue-900', 'border', 'border-blue-300');
+                if (chatDialog) chatDialog.style.borderTopColor = '#dbeafe';
+                if (chatInputEl) chatInputEl.classList.add('bg-blue-50', 'border-blue-300', 'text-blue-900');
+                if (sendChatButton) sendChatButton.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                chatMessages.forEach(msg => {
+                    if (msg.classList.contains('user')) {
+                        msg.classList.add('bg-blue-400', 'text-blue-900');
+                    } else if (msg.classList.contains('bot') || msg.classList.contains('bot-loading')) {
+                        msg.classList.add('bg-blue-200', 'text-blue-900');
+                    }
+                });
+            }
+        }
+
+        // Function to apply saved theme on load
+        function applySavedTheme() {
+            const savedTheme = localStorage.getItem('selectedTheme') || 'dark'; // Default to dark
+            setTheme(savedTheme);
+        }
+
+        // Helping Bot Interaction
+        helpingBot.addEventListener('mousedown', () => {
+            helpingBot.classList.add('active');
+            // Toggle chat dialog visibility
+            robotChatDialog.classList.toggle('open');
+        });
+
+        helpingBot.addEventListener('mouseup', () => {
+            helpingBot.classList.remove('active');
+        });
+
+        // For touch devices
+        helpingBot.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // Prevent default touch behavior (like scrolling)
+            helpingBot.classList.add('active');
+            robotChatDialog.classList.toggle('open');
+        });
+
+        helpingBot.addEventListener('touchend', () => {
+            helpingBot.classList.remove('active');
+        });
+
+        // Close chat dialog if clicked outside
+        document.addEventListener('click', (event) => {
+            if (!helpingBot.contains(event.target) && !robotChatDialog.contains(event.target)) {
+                robotChatDialog.classList.remove('open');
+            }
+        });
+
+        // Chat functionality
+        let chatHistory = [];
+
+        // Utility to append a message to the chat log on the backend
+        async function appendToChatLog(role, content) {
+            await fetch('http://localhost:8000/chat-log/append', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role, content })
+            });
+        }
+
+        function displayMessage(message, sender) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('chat-message', sender);
+            messageElement.textContent = message;
+            chatMessagesDiv.appendChild(messageElement);
+            chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight; // Scroll to bottom
+            // Append to chat log
+            appendToChatLog(sender === 'user' ? 'user' : 'assistant', message);
+        }
+
+        async function sendChatMessage() {
+            const userMessage = chatInput.value.trim();
+            if (!userMessage) return;
+
+            chatHistory.push({ role: "user", content: userMessage });
+            displayMessage(userMessage, 'user');
+            chatInput.value = ''; // Clear input
+
+            // Show loading indicator
+            const loadingMessageElement = document.createElement('div');
+            loadingMessageElement.classList.add('chat-message', 'bot-loading');
+            loadingMessageElement.innerHTML = '<div class="dot-pulse"></div>'; // Use dot-pulse for loading
+            chatMessagesDiv.appendChild(loadingMessageElement);
+            chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+
+            try {
+                // Use the FastAPI backend for chat with history
+                const apiUrl = "http://localhost:8000/chat";
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ history: chatHistory })
+                });
+                const apiResult = await response.json();
+
+                chatMessagesDiv.removeChild(loadingMessageElement); // Remove loading indicator
+
+                if (apiResult.response) {
+                    const botResponse = cleanModelResponse(apiResult.response);
+                    displayMessage(botResponse, 'bot');
+                    chatHistory.push({ role: "bot", content: botResponse });
+                } else {
+                    displayMessage('Sorry, I could not get a response.', 'bot');
+                    console.error('Unexpected API response structure:', apiResult);
+                }
+            } catch (err) {
+                chatMessagesDiv.removeChild(loadingMessageElement); // Remove loading indicator on error
+                displayMessage('An error occurred. Please try again.', 'bot');
+                console.error('API call error:', err);
+            }
+        }
+
+        sendChatBtn.addEventListener('click', sendChatMessage);
+        chatInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                sendChatMessage();
+            }
+        });
+
+        // Insert the chat log modal HTML at the end of <body> (inside script)
+        const chatLogModalHTML = `
+        <div id="chatLogModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden">
+          <div class="bg-white dark:bg-gray-900 rounded-lg shadow-lg w-full max-w-2xl p-6 relative">
+            <button id="closeChatLogModal" class="absolute top-2 right-2 text-gray-500 hover:text-gray-900 dark:hover:text-white">&times;</button>
+            <h2 class="text-xl font-bold mb-4 text-center">Chat Log</h2>
+            <textarea id="chatLogContent" class="w-full h-64 p-2 rounded border border-gray-300 dark:bg-gray-800 dark:text-white" readonly></textarea>
+            <div class="flex justify-end gap-2 mt-4">
+              <button id="downloadChatLogBtn" class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Download</button>
+              <button id="clearChatLogBtn" class="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700">Clear</button>
+            </div>
+          </div>
+        </div>
+        `;
+        if (!document.getElementById('chatLogModal')) {
+            document.body.insertAdjacentHTML('beforeend', chatLogModalHTML);
+        }
+
+        // Add Chat Log button to the UI (top right corner)
+        if (!document.getElementById('floatingChatLogBtn')) {
+            const chatLogBtn = document.createElement('button');
+            chatLogBtn.textContent = 'Chat Log';
+            chatLogBtn.id = 'floatingChatLogBtn';
+            chatLogBtn.className = 'fixed top-4 right-24 z-40 px-4 py-2 rounded bg-gray-700 text-white hover:bg-blue-600 shadow-lg';
+            document.body.appendChild(chatLogBtn);
+            chatLogBtn.addEventListener('click', async () => {
+                chatLogModal.classList.remove('hidden');
+                await fetchAndDisplayChatLog();
+            });
+        }
+
+        // Modal elements
+        const chatLogModal = document.getElementById('chatLogModal');
+        const closeChatLogModal = document.getElementById('closeChatLogModal');
+        const chatLogContent = document.getElementById('chatLogContent');
+        const downloadChatLogBtn = document.getElementById('downloadChatLogBtn');
+        const clearChatLogBtn = document.getElementById('clearChatLogBtn');
+
+        // Close modal
+        closeChatLogModal.addEventListener('click', () => {
+            chatLogModal.classList.add('hidden');
+        });
+
+        // Fetch and display chat log
+        async function fetchAndDisplayChatLog() {
+            try {
+                const response = await fetch('http://localhost:8000/chat-log');
+                const text = await response.text();
+                chatLogContent.value = text;
+            } catch (err) {
+                chatLogContent.value = 'Failed to load chat log.';
+            }
+        }
+
+        // Download chat log
+        downloadChatLogBtn.addEventListener('click', () => {
+            const blob = new Blob([chatLogContent.value], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'chat.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        // Clear chat log
+        clearChatLogBtn.addEventListener('click', async () => {
+            await fetch('http://localhost:8000/chat-log/clear', { method: 'POST' });
+            chatLogContent.value = '';
+        });
+
+        // Make the sidebar 'History' button open the chat log modal
+        const sidebarHistoryBtn = Array.from(document.querySelectorAll('nav a, .sidebar a, .sidebar-text')).find(
+            el => el.textContent.trim().toLowerCase().includes('history')
+        );
+        if (sidebarHistoryBtn) {
+            sidebarHistoryBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                chatLogModal.classList.remove('hidden');
+                await fetchAndDisplayChatLog();
+            });
+        }
+
+        // Insert Data Test modal HTML at the end of <body> (inside script)
+        const dataTestModalHTML = `
+        <div id="dataTestModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden">
+          <div class="bg-white dark:bg-gray-900 rounded-lg shadow-lg w-full max-w-2xl p-6 relative">
+            <button id="closeDataTestModal" class="absolute top-2 right-2 text-gray-500 hover:text-gray-900 dark:hover:text-white">&times;</button>
+            <h2 class="text-xl font-bold mb-4 text-center">Model Data Test</h2>
+            <div id="dataTestResults" class="mb-4 text-sm text-gray-800 dark:text-gray-200"></div>
+            <div class="flex flex-col gap-4 items-center">
+              <img id="dataTestResponseTimePlot" class="w-full max-w-md rounded border" style="display:none;" />
+              <img id="dataTestOutputLengthPlot" class="w-full max-w-md rounded border" style="display:none;" />
+            </div>
+            <div class="flex justify-end gap-2 mt-4">
+              <button id="downloadDataTestCsvBtn" class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Download CSV</button>
+            </div>
+          </div>
+        </div>
+        `;
+        if (!document.getElementById('dataTestModal')) {
+            document.body.insertAdjacentHTML('beforeend', dataTestModalHTML);
+        }
+
+        // Modal elements
+        const dataTestModal = document.getElementById('dataTestModal');
+        const closeDataTestModal = document.getElementById('closeDataTestModal');
+        const dataTestResults = document.getElementById('dataTestResults');
+        const dataTestResponseTimePlot = document.getElementById('dataTestResponseTimePlot');
+        const dataTestOutputLengthPlot = document.getElementById('dataTestOutputLengthPlot');
+        const downloadDataTestCsvBtn = document.getElementById('downloadDataTestCsvBtn');
+
+        // Close modal
+        closeDataTestModal.addEventListener('click', () => {
+            dataTestModal.classList.add('hidden');
+        });
+
+        // Download CSV
+        downloadDataTestCsvBtn.addEventListener('click', () => {
+            window.open('http://localhost:8000/data-test/download-csv', '_blank');
+        });
+
+        // Sidebar Data Test link logic
+        const sidebarDataTestBtn = Array.from(document.querySelectorAll('nav a, .sidebar a, .sidebar-text')).find(
+            el => el.textContent.trim().toLowerCase().includes('data test')
+        );
+        if (sidebarDataTestBtn) {
+            sidebarDataTestBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                dataTestModal.classList.remove('hidden');
+                dataTestResults.textContent = 'Running model data test...';
+                dataTestResponseTimePlot.style.display = 'none';
+                dataTestOutputLengthPlot.style.display = 'none';
+                try {
+                    const response = await fetch('http://localhost:8000/data-test', { method: 'POST' });
+                    const result = await response.json();
+                    // Show results table
+                    let html = '<table class="w-full text-xs mb-2"><thead><tr><th class="text-left">Prompt</th><th>Time (s)</th><th>Output Words</th></tr></thead><tbody>';
+                    for (const row of result.results) {
+                        html += `<tr><td class="pr-2">${row.prompt}</td><td class="text-center">${row.response_time_sec}</td><td class="text-center">${row.output_length}</td></tr>`;
+                    }
+                    html += '</tbody></table>';
+                    dataTestResults.innerHTML = html;
+                    // Show plots
+                    dataTestResponseTimePlot.src = 'data:image/png;base64,' + result.response_time_plot;
+                    dataTestResponseTimePlot.style.display = '';
+                    dataTestOutputLengthPlot.src = 'data:image/png;base64,' + result.output_length_plot;
+                    dataTestOutputLengthPlot.style.display = '';
+                } catch (err) {
+                    dataTestResults.textContent = 'Failed to run data test.';
+                }
+            });
+        }
+
+        // Add event listener for Back button in translate area
+        document.addEventListener('DOMContentLoaded', function() {
+            const backFromTranslateBtn = document.getElementById('backFromTranslateBtn');
+            if (backFromTranslateBtn) {
+                backFromTranslateBtn.addEventListener('click', function() {
+                    translateLanguageDiv.classList.add('hidden');
+                    mainInputContainer.classList.remove('hidden');
+                });
+            }
+        });
+
+        // Show Lottie animation if North Korean is selected in translate dropdown
+        languageSelect.addEventListener('change', function() {
+            const lottieId = 'northKoreanLottie';
+            let lottieDiv = document.getElementById(lottieId);
+            if (languageSelect.value === 'North Korean') {
+                // Hide the rest of the translate UI
+                Array.from(translateLanguageDiv.children).forEach(child => {
+                    if (child.id !== 'language-select' && child.id !== 'backFromTranslateBtn') {
+                        child.style.display = 'none';
+                    }
+                });
+                // Insert Lottie animation if not already present
+                if (!lottieDiv) {
+                    lottieDiv = document.createElement('div');
+                    lottieDiv.id = lottieId;
+                    lottieDiv.innerHTML = `
+                        <dotlottie-wc src="https://lottie.host/22608bf8-01ce-4385-9c9e-0ad7741afd7d/vpJd2ZwJkF.lottie" style="width: 300px;height: 300px" speed="1" autoplay loop></dotlottie-wc>
+                    `;
+                    lottieDiv.style.display = 'flex';
+                    lottieDiv.style.justifyContent = 'center';
+                    lottieDiv.style.alignItems = 'center';
+                    lottieDiv.style.marginTop = '20px';
+                    translateLanguageDiv.appendChild(lottieDiv);
+                } else {
+                    lottieDiv.style.display = 'flex';
+                }
+            } else {
+                // Restore the rest of the translate UI
+                Array.from(translateLanguageDiv.children).forEach(child => {
+                    if (child.id !== 'language-select' && child.id !== 'backFromTranslateBtn') {
+                        child.style.display = '';
+                    }
+                });
+                // Remove or hide the Lottie animation if present
+                if (lottieDiv) {
+                    lottieDiv.style.display = 'none';
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animations Transition</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Global styles for the body */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; /* Prevents scrollbars if content overflows during animations */
+            background-color: #000; /* Black background for the whole page */
+        }
+
+        /* Styles for the Lottie animation container */
+        #lottie-section {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #000000; /* Black background */
+            width: 100%;
+            height: 100%;
+            position: absolute; /* Position absolutely to cover the screen */
+            top: 0;
+            left: 0;
+            transition: opacity 1s ease-out; /* Smooth fade-out transition */
+        }
+
+        .lottie-container {
+            background-color: #000000; /* Black background */
+            padding: 2rem;
+            border-radius: 1rem; /* Rounded corners */
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        /* Ensure dotlottie-wc respects its container's size */
+        dotlottie-wc {
+            display: block; /* Important for proper sizing */
+        }
+
+        /* Styles for the Study Helper section */
+        #study-helper-section {
+            display: none; /* Hidden by default */
+            height: 100%;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            /* Subtle radial gradient for a more dynamic black background */
+            background: radial-gradient(circle at center, rgba(30, 0, 60, 0.2) 0%, rgba(0, 0, 0, 1) 70%);
+            color: #fff;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            position: absolute; /* Position absolutely to cover the screen */
+            top: 0;
+            left: 0;
+            width: 100%;
+            transition: opacity 1s ease-in; /* Smooth fade-in transition */
+        }
+
+        /* Text Animations for Study Helper */
+        .main-title {
+            font-size: 4.5rem; /* Slightly larger */
+            font-weight: 800; /* Bolder */
+            margin-bottom: 10px;
+            opacity: 0;
+            transform: scale(0.8); /* Starts smaller */
+            animation: fadeInScale 1.8s ease-out forwards;
+            color: #fca311; /* Accent color */
+            text-shadow: 0 0 15px rgba(252, 163, 17, 0.6); /* Subtle glow effect */
+        }
+
+        .title {
+            font-size: 3.5rem; /* Slightly larger */
+            font-weight: 700;
+            margin-bottom: 20px;
+            opacity: 0;
+            transform: translateY(50px); /* Starts from below */
+            animation: slideInUp 1.8s ease-out 0.3s forwards; /* Delayed slide-in */
+            color: #fff;
+        }
+
+        .subtitle {
+            font-size: 1.6rem; /* Slightly larger */
+            font-weight: 400;
+            margin-bottom: 40px; /* Adjusted margin back for dot animation */
+            opacity: 0;
+            animation: fadeIn 1.8s ease-out 0.6s forwards; /* Further delayed fade-in */
+            color: #ccc;
+        }
+
+        /* YouTube Play Icon */
+        .play-icon {
+            width: 80px; /* Size of the icon */
+            height: 80px;
+            margin-bottom: 30px; /* Space above text */
+            opacity: 0;
+            transform: scale(0.5); /* Starts smaller */
+            animation: popIn 1s ease-out 0.1s forwards; /* Appears early and pops in */
+            filter: drop-shadow(0 0 15px rgba(255, 0, 0, 0.7)); /* Red glow for the icon */
+        }
+
+        .play-icon svg {
+            fill: #ff0000; /* YouTube red color */
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Animation Container & Dots (re-introduced) */
+        .animation-container {
+            display: flex;
+            gap: 20px; /* Increased gap between dots */
+            margin-top: 40px; /* Increased margin */
+            opacity: 0;
+            animation: fadeIn 1.8s ease-out 1s forwards; /* Fades in the container itself */
+        }
+
+        .dot {
+            width: 25px; /* Slightly larger dots */
+            height: 25px;
+            background-color: #667eea; /* Blueish tone */
+            border-radius: 50%;
+            transform: scale(0); /* Hidden initially */
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.7); /* Subtle glow for dots */
+            animation: popInDot 0.8s ease-out forwards; /* Pop-in animation for each dot */
+        }
+
+        /* Staggered animation delays for dots */
+        .dot:nth-child(1) { animation-delay: 1.2s; }
+        .dot:nth-child(2) { animation-delay: 1.4s; }
+        .dot:nth-child(3) { animation-delay: 1.6s; }
+        .dot:nth-child(4) { animation-delay: 1.8s; }
+        .dot:nth-child(5) { animation-delay: 2.0s; }
+
+        /* Keyframe animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes slideInUp {
+            from { opacity: 0; transform: translateY(50px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes popIn { /* For the play icon */
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes popInDot { /* For the dots, slightly different timing */
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Media queries for responsiveness */
+        @media (max-width: 768px) {
+            .main-title {
+                font-size: 3.5rem;
+            }
+            .title {
+                font-size: 2.8rem;
+            }
+            .subtitle {
+                font-size: 1.4rem;
+            }
+            .play-icon {
+                width: 60px;
+                height: 60px;
+            }
+            .dot {
+                width: 20px;
+                height: 20px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .main-title {
+                font-size: 2.8rem;
+            }
+            .title {
+                font-size: 2.2rem;
+            }
+            .subtitle {
+                font-size: 1.2rem;
+            }
+            .play-icon {
+                width: 50px;
+                height: 50px;
+            }
+            .dot {
+                width: 15px;
+                height: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Lottie Animation Section -->
+    <div id="lottie-section">
+        <div class="lottie-container">
+            <!-- Script to load the dotLottie web component -->
+            <script src="https://unpkg.com/@lottiefiles/dotlottie-wc@0.6.2/dist/dotlottie-wc.js" type="module"></script>
+            <!-- Your dotlottie-wc tag -->
+            <dotlottie-wc
+                src="https://lottie.host/6aaaff97-67ef-4c7f-aaf2-84b3e28c8960/LsG6pmqA9t.lottie"
+                style="width: 600px; height: 600px;"
+                speed="1"
+                autoplay
+                loop
+                class="rounded-lg"
+            ></dotlottie-wc>
+        </div>
+    </div>
+
+    <!-- Study Helper Section -->
+    <div id="study-helper-section" class="container">
+        <!-- YouTube Play Icon (SVG) -->
+        <div class="play-icon" id="playIcon">
+            <svg viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+            </svg>
+        </div>
+        <h1 class="main-title" id="mainTitle">
+            Study Helper
+        </h1>
+        <h1 class="title" id="title">
+            YouTube Summarizer
+        </h1>
+
+        <!-- Original Dot Animation Re-introduced -->
+        <div class="animation-container" id="animationContainer">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+        </div>
+
+        <p class="subtitle" id="subtitle">
+            Get the essence of any video, instantly.
+        </p>
+    </div>
+
+    <script>
+        window.onload = () => {
+            const lottieSection = document.getElementById('lottie-section');
+            const studyHelperSection = document.getElementById('study-helper-section');
+
+            // Set a timeout for the Lottie animation to play before transitioning
+            // Adjust this duration based on how long you want the Lottie to show
+            const lottieDisplayDuration = 4000; // 4 seconds for Lottie animation
+
+            setTimeout(() => {
+                // Fade out Lottie section
+                lottieSection.style.opacity = '0';
+                setTimeout(() => {
+                    lottieSection.style.display = 'none'; // Hide after fade out
+                    studyHelperSection.style.display = 'flex'; // Show Study Helper section
+                    studyHelperSection.style.opacity = '1'; // Fade in Study Helper section
+
+                    // Now, trigger the animations for the Study Helper section
+                    const playIcon = document.getElementById('playIcon');
+                    const mainTitle = document.getElementById('mainTitle');
+                    const title = document.getElementById('title');
+                    const subtitle = document.getElementById('subtitle');
+                    const animationContainer = document.getElementById('animationContainer');
+                    const dots = document.querySelectorAll('.dot');
+                    const container = document.querySelector('#study-helper-section'); // Reference the study helper container
+
+                    // Initial animations for text and play icon
+                    playIcon.style.animation = 'popIn 1s ease-out 0.1s forwards';
+                    mainTitle.style.animation = 'fadeInScale 1.8s ease-out forwards';
+                    title.style.animation = 'slideInUp 1.8s ease-out 0.3s forwards';
+                    subtitle.style.animation = 'fadeIn 1.8s ease-out 0.6s forwards';
+                    animationContainer.style.animation = 'fadeIn 1.8s ease-out 1s forwards';
+
+                    // Apply pulse animation to dots after their initial pop-in
+                    dots.forEach(dot => {
+                        dot.style.animation = dot.style.animation + ', pulse 1.5s infinite ease-in-out 2s';
+                    });
+
+                    // Apply pulse animation to play icon after its initial pop-in
+                    playIcon.style.animation = playIcon.style.animation + ', pulse 1.5s infinite ease-in-out 1.5s';
+
+                    // Timeout for the "Ready" state within Study Helper
+                    setTimeout(() => {
+                        animationContainer.style.display = 'none'; // Hide dots
+
+                        // Update content for the "Ready" state
+                        container.innerHTML = `
+                            <div class="play-icon text-green-400 opacity-0 animate-fadeInScale">
+                                <svg viewBox="0 0 24 24">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+                                </svg>
+                            </div>
+                            <h1 class="main-title text-green-400 opacity-0 animate-fadeInScale">Study Helper</h1>
+                            <h1 class="title text-green-400 opacity-0 animate-slideInUp">Ready to Summarize!</h1>
+                            <p class="subtitle text-green-300 opacity-0 animate-fadeIn">Click anywhere to proceed.</p>
+                        `;
+                        container.style.cursor = 'pointer';
+
+                        // Re-apply animations for the "Ready" state elements
+                        const readyElements = container.querySelectorAll('.main-title, .title, .subtitle, .play-icon');
+                        readyElements.forEach(el => {
+                            el.style.opacity = '0';
+                            el.style.animation = '';
+                            if (el.classList.contains('main-title') || el.classList.contains('play-icon')) {
+                                el.style.animation = 'fadeInScale 1s ease-out forwards';
+                            } else if (el.classList.contains('title')) {
+                                el.style.animation = 'slideInUp 1s ease-out 0.2s forwards';
+                            } else if (el.classList.contains('subtitle')) {
+                                el.style.animation = 'fadeIn 1s ease-out 0.4s forwards';
+                            }
+                        });
+
+                        container.addEventListener('click', () => {
+                            console.log("Proceeding to the next intro animation!");
+                            window.location.href = 'intro-2.html';
+                        });
+
+                    }, 4000); // Delay for "Ready" state within Study Helper
+                }, 1000); // Delay for Lottie fade-out transition
+            }, lottieDisplayDuration);
+        };
+    </script>
+</body>
+</html>
